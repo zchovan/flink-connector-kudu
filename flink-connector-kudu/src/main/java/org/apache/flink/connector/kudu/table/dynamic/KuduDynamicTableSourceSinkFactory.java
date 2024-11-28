@@ -25,13 +25,12 @@ import org.apache.flink.connector.kudu.connector.reader.KuduReaderConfig;
 import org.apache.flink.connector.kudu.connector.writer.KuduWriterConfig;
 import org.apache.flink.connector.kudu.table.function.lookup.KuduLookupOptions;
 import org.apache.flink.connector.kudu.table.utils.KuduTableUtils;
-import org.apache.flink.table.api.TableSchema;
+import org.apache.flink.table.catalog.ResolvedSchema;
 import org.apache.flink.table.connector.sink.DynamicTableSink;
 import org.apache.flink.table.connector.source.DynamicTableSource;
 import org.apache.flink.table.factories.DynamicTableSinkFactory;
 import org.apache.flink.table.factories.DynamicTableSourceFactory;
 import org.apache.flink.table.factories.FactoryUtil;
-
 import org.apache.kudu.shaded.com.google.common.collect.Sets;
 
 import java.util.Optional;
@@ -149,8 +148,9 @@ public class KuduDynamicTableSourceSinkFactory
         Optional<Integer> bufferSize = config.getOptional(KUDU_MAX_BUFFER_SIZE);
         Optional<Boolean> ignoreNotFound = config.getOptional(KUDU_IGNORE_NOT_FOUND);
         Optional<Boolean> ignoreDuplicate = config.getOptional(KUDU_IGNORE_DUPLICATE);
-        TableSchema schema = context.getCatalogTable().getSchema();
-        TableSchema physicalSchema = KuduTableUtils.getSchemaWithSqlTimestamp(schema);
+        ResolvedSchema schema = context.getCatalogTable().getResolvedSchema();
+        ResolvedSchema physicalSchema = KuduTableUtils.getSchemaWithSqlTimestamp(schema);
+
         KuduTableInfo tableInfo =
                 KuduTableUtils.createTableInfo(
                         tableName, schema, context.getCatalogTable().toProperties());
@@ -188,8 +188,8 @@ public class KuduDynamicTableSourceSinkFactory
                         .withMaxRetryTimes(kuduMaxReties)
                         .build();
 
-        TableSchema schema = context.getCatalogTable().getSchema();
-        TableSchema physicalSchema = KuduTableUtils.getSchemaWithSqlTimestamp(schema);
+        ResolvedSchema schema = context.getCatalogTable().getResolvedSchema();
+        ResolvedSchema physicalSchema = KuduTableUtils.getSchemaWithSqlTimestamp(schema);
         KuduTableInfo tableInfo =
                 KuduTableUtils.createTableInfo(
                         config.get(KUDU_TABLE), schema, context.getCatalogTable().toProperties());
@@ -200,7 +200,7 @@ public class KuduDynamicTableSourceSinkFactory
                 configBuilder,
                 tableInfo,
                 physicalSchema,
-                physicalSchema.getFieldNames(),
+                physicalSchema.getColumnNames(),
                 kuduLookupOptions);
     }
 

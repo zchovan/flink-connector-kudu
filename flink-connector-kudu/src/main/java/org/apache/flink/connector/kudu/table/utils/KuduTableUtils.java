@@ -23,7 +23,9 @@ import org.apache.flink.connector.kudu.connector.CreateTableOptionsFactory;
 import org.apache.flink.connector.kudu.connector.KuduFilterInfo;
 import org.apache.flink.connector.kudu.connector.KuduTableInfo;
 import org.apache.flink.connector.kudu.table.dynamic.KuduDynamicTableSourceSinkFactory;
-import org.apache.flink.table.api.TableSchema;
+import org.apache.flink.table.api.Schema.Builder;
+import org.apache.flink.table.catalog.Column;
+import org.apache.flink.table.catalog.ResolvedSchema;
 import org.apache.flink.table.expressions.CallExpression;
 import org.apache.flink.table.expressions.Expression;
 import org.apache.flink.table.expressions.FieldReferenceExpression;
@@ -33,8 +35,7 @@ import org.apache.flink.table.functions.FunctionDefinition;
 import org.apache.flink.table.types.DataType;
 import org.apache.flink.table.types.logical.DecimalType;
 import org.apache.flink.table.types.logical.TimestampType;
-import org.apache.flink.table.utils.TableSchemaUtils;
-
+import org.apache.flink.util.Preconditions;
 import org.apache.kudu.ColumnSchema;
 import org.apache.kudu.ColumnTypeAttributes;
 import org.apache.kudu.Schema;
@@ -43,15 +44,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
-
 import java.sql.Timestamp;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 /** Kudu table utilities. */
 public class KuduTableUtils {
@@ -59,7 +55,7 @@ public class KuduTableUtils {
     private static final Logger LOG = LoggerFactory.getLogger(KuduTableUtils.class);
 
     public static KuduTableInfo createTableInfo(
-            String tableName, TableSchema schema, Map<String, String> props) {
+            String tableName, ResolvedSchema schema, Map<String, String> props) {
         // Since KUDU_HASH_COLS is a required property for table creation, we use it to infer
         // whether to create table
         boolean createIfMissing =
@@ -67,11 +63,11 @@ public class KuduTableUtils {
                         || schema.getPrimaryKey().isPresent();
         KuduTableInfo tableInfo = KuduTableInfo.forTable(tableName);
 
-        if (createIfMissing) {
 
+        if (createIfMissing) {
             List<Tuple2<String, DataType>> columns =
-                    getSchemaWithSqlTimestamp(schema).getTableColumns().stream()
-                            .map(tc -> Tuple2.of(tc.getName(), tc.getType()))
+                    getSchemaWithSqlTimestamp(schema).getColumns().stream()
+                            .map(tc -> Tuple2.of(tc.getName(), tc.getDataType()))
                             .collect(Collectors.toList());
 
             List<String> keyColumns = getPrimaryKeyColumns(props, schema);
@@ -131,21 +127,21 @@ public class KuduTableUtils {
                 .collect(Collectors.toList());
     }
 
-    public static TableSchema kuduToFlinkSchema(Schema schema) {
-        TableSchema.Builder builder = TableSchema.builder();
+    public static org.apache.flink.table.api.Schema kuduToFlinkSchema(Schema schema) {
+        Builder builder = org.apache.flink.table.api.Schema.newBuilder();
 
         for (ColumnSchema column : schema.getColumns()) {
             DataType flinkType =
                     KuduTypeUtils.toFlinkType(column.getType(), column.getTypeAttributes())
                             .nullable();
-            builder.field(column.getName(), flinkType);
+            builder.fromFields(Arrays.asList(column.getName()), Arrays.asList(flinkType));
         }
 
         return builder.build();
     }
 
     public static List<String> getPrimaryKeyColumns(
-            Map<String, String> tableProperties, TableSchema tableSchema) {
+            Map<String, String> tableProperties, ResolvedSchema tableSchema) {
         return tableProperties.containsKey(
                         KuduDynamicTableSourceSinkFactory.KUDU_PRIMARY_KEY_COLS.key())
                 ? Arrays.asList(
@@ -162,21 +158,41 @@ public class KuduTableUtils {
                         .split(","));
     }
 
-    public static TableSchema getSchemaWithSqlTimestamp(TableSchema schema) {
-        TableSchema.Builder builder = new TableSchema.Builder();
-        TableSchemaUtils.getPhysicalSchema(schema)
-                .getTableColumns()
+    public static ResolvedSchema getSchemaWithSqlTimestamp(ResolvedSchema schema) {
+        List<Column> columns = new ArrayList<>();
+
+        getPhysicalSchema(schema)
+                .getColumns()
                 .forEach(
                         tableColumn -> {
-                            if (tableColumn.getType().getLogicalType() instanceof TimestampType) {
-                                builder.field(
-                                        tableColumn.getName(),
-                                        tableColumn.getType().bridgedTo(Timestamp.class));
+                            if (tableColumn.getDataType().getLogicalType() instanceof TimestampType) {
+                                columns.add(Column.physical(tableColumn.getName(), tableColumn.getDataType().bridgedTo(Timestamp.class)));
+
                             } else {
-                                builder.field(tableColumn.getName(), tableColumn.getType());
+                                columns.add(Column.physical(tableColumn.getName(), tableColumn.getDataType()));
                             }
                         });
-        return builder.build();
+
+        return ResolvedSchema.of(columns);
+    }
+
+    // @todo(zchovan) this should be coming from the flink library
+    public static ResolvedSchema getPhysicalSchema(ResolvedSchema schema) {
+        List<String> columnNames = schema.getColumnNames();
+        List<DataType> columnDataTypes = schema.getColumnDataTypes();
+        Preconditions.checkArgument(
+                columnNames.size() == columnDataTypes.size(),
+                "Mismatch between number of columns names and data types.");
+        final List<Column> columns =
+                IntStream.range(0, columnNames.size())
+                        .mapToObj(i -> Column.physical(columnNames.get(i), columnDataTypes.get(i)))
+                        .collect(Collectors.toList());
+
+        if (schema.getPrimaryKey().isPresent()) {
+            return new ResolvedSchema(columns, Collections.emptyList(), schema.getPrimaryKey().get());
+        }
+
+        return new ResolvedSchema(columns, Collections.emptyList(), null);
     }
 
     /** Converts Flink Expression to KuduFilterInfo. */

@@ -24,7 +24,6 @@ import org.apache.flink.connector.kudu.table.function.lookup.KuduLookupOptions;
 import org.apache.flink.connector.kudu.table.function.lookup.KuduRowDataLookupFunction;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.util.Collector;
-
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -57,7 +56,7 @@ public class KuduRowDataLookupFunctionTest extends KuduTestBase {
         KuduLookupOptions lookupOptions = KuduLookupOptions.builder().build();
 
         KuduRowDataLookupFunction lookupFunction =
-                buildRowDataLookupFunction(lookupOptions, new String[] {"id"});
+                buildRowDataLookupFunction(lookupOptions, List.of("id"));
 
         ListOutputCollector collector = new ListOutputCollector();
         lookupFunction.setCollector(collector);
@@ -87,7 +86,7 @@ public class KuduRowDataLookupFunctionTest extends KuduTestBase {
                         .build();
 
         KuduRowDataLookupFunction lookupFunction =
-                buildRowDataLookupFunction(lookupOptions, new String[] {"id"});
+                buildRowDataLookupFunction(lookupOptions, List.of("id"));
 
         ListOutputCollector collector = new ListOutputCollector();
         lookupFunction.setCollector(collector);
@@ -108,7 +107,7 @@ public class KuduRowDataLookupFunctionTest extends KuduTestBase {
     }
 
     private KuduRowDataLookupFunction buildRowDataLookupFunction(
-            KuduLookupOptions lookupOptions, String[] keyNames) {
+            KuduLookupOptions lookupOptions, List<String> keyNames) {
         KuduReaderConfig config =
                 KuduReaderConfig.Builder.setMasters(getMasterAddress()).setRowLimit(10).build();
         return new KuduRowDataLookupFunction.Builder()
@@ -120,8 +119,8 @@ public class KuduRowDataLookupFunctionTest extends KuduTestBase {
                 .build();
     }
 
-    private String[] getFieldNames() {
-        return new String[] {"id", "title", "author", "price", "quantity"};
+    private List<String> getFieldNames() {
+        return List.of("id", "title", "author", "price", "quantity");
     }
 
     private static final class ListOutputCollector implements Collector<RowData> {

@@ -18,7 +18,7 @@
 package org.apache.flink.connector.kudu.connector.writer;
 
 import org.apache.flink.annotation.Internal;
-import org.apache.flink.table.api.TableSchema;
+import org.apache.flink.table.catalog.ResolvedSchema;
 import org.apache.flink.table.data.DecimalData;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.data.StringData;
@@ -49,10 +49,10 @@ public class RowDataUpsertOperationMapper extends AbstractSingleOperationMapper<
 
     private LogicalType[] logicalTypes;
 
-    public RowDataUpsertOperationMapper(TableSchema schema) {
-        super(schema.getFieldNames());
+    public RowDataUpsertOperationMapper(ResolvedSchema schema) {
+        super(schema.getColumnNames());
         logicalTypes =
-                Arrays.stream(schema.getFieldDataTypes())
+                schema.getColumnDataTypes().stream()
                         .map(DataType::getLogicalType)
                         .toArray(LogicalType[]::new);
     }

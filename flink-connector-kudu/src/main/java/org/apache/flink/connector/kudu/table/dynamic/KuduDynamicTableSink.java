@@ -21,7 +21,7 @@ import org.apache.flink.connector.kudu.connector.KuduTableInfo;
 import org.apache.flink.connector.kudu.connector.writer.KuduWriterConfig;
 import org.apache.flink.connector.kudu.connector.writer.RowDataUpsertOperationMapper;
 import org.apache.flink.connector.kudu.sink.KuduSink;
-import org.apache.flink.table.api.TableSchema;
+import org.apache.flink.table.catalog.ResolvedSchema;
 import org.apache.flink.table.connector.ChangelogMode;
 import org.apache.flink.table.connector.sink.DynamicTableSink;
 import org.apache.flink.table.connector.sink.SinkV2Provider;
@@ -34,12 +34,12 @@ import java.util.Objects;
 /** A {@link KuduDynamicTableSink} for Kudu. */
 public class KuduDynamicTableSink implements DynamicTableSink {
     private final KuduWriterConfig.Builder writerConfigBuilder;
-    private final TableSchema flinkSchema;
+    private final ResolvedSchema flinkSchema;
     private final KuduTableInfo tableInfo;
 
     public KuduDynamicTableSink(
             KuduWriterConfig.Builder writerConfigBuilder,
-            TableSchema flinkSchema,
+            ResolvedSchema flinkSchema,
             KuduTableInfo tableInfo) {
         this.writerConfigBuilder = writerConfigBuilder;
         this.flinkSchema = flinkSchema;

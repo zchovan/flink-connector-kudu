@@ -41,14 +41,14 @@ import java.util.Optional;
 @PublicEvolving
 public abstract class AbstractSingleOperationMapper<T> implements KuduOperationMapper<T> {
 
-    protected final String[] columnNames;
+    protected final List<String> columnNames;
     private final KuduOperation operation;
 
-    protected AbstractSingleOperationMapper(String[] columnNames) {
+    protected AbstractSingleOperationMapper(List<String> columnNames) {
         this(columnNames, null);
     }
 
-    public AbstractSingleOperationMapper(String[] columnNames, KuduOperation operation) {
+    public AbstractSingleOperationMapper(List<String> columnNames, KuduOperation operation) {
         this.columnNames = columnNames;
         this.operation = operation;
     }
@@ -91,8 +91,8 @@ public abstract class AbstractSingleOperationMapper<T> implements KuduOperationM
         Operation operation = operationOpt.get();
         PartialRow partialRow = operation.getRow();
 
-        for (int i = 0; i < columnNames.length; i++) {
-            partialRow.addObject(columnNames[i], getField(input, i));
+        for (int i = 0; i < columnNames.size(); i++) {
+            partialRow.addObject(columnNames.get(i), getField(input, i));
         }
 
         return Collections.singletonList(operation);

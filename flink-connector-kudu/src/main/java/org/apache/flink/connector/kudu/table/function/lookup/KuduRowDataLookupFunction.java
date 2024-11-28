@@ -18,6 +18,8 @@
 
 package org.apache.flink.connector.kudu.table.function.lookup;
 
+import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.compress.utils.Lists;
 import org.apache.flink.connector.kudu.connector.KuduFilterInfo;
 import org.apache.flink.connector.kudu.connector.KuduTableInfo;
 import org.apache.flink.connector.kudu.connector.converter.RowResultConverter;
@@ -30,10 +32,6 @@ import org.apache.flink.table.data.GenericRowData;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.functions.FunctionContext;
 import org.apache.flink.table.functions.TableFunction;
-
-import org.apache.commons.collections.CollectionUtils;
-import org.apache.commons.compress.utils.Lists;
-import org.apache.commons.lang3.ArrayUtils;
 import org.apache.kudu.shaded.com.google.common.cache.Cache;
 import org.apache.kudu.shaded.com.google.common.cache.CacheBuilder;
 import org.slf4j.Logger;
@@ -41,7 +39,6 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -52,8 +49,8 @@ public class KuduRowDataLookupFunction extends TableFunction<RowData> {
 
     private final KuduTableInfo tableInfo;
     private final KuduReaderConfig kuduReaderConfig;
-    private final String[] keyNames;
-    private final String[] projectedFields;
+    private final List<String> keyNames;
+    private final List<String> projectedFields;
     private final long cacheMaxSize;
     private final long cacheExpireMs;
     private final int maxRetryTimes;
@@ -63,10 +60,10 @@ public class KuduRowDataLookupFunction extends TableFunction<RowData> {
     private transient KuduReader<RowData> kuduReader;
 
     private KuduRowDataLookupFunction(
-            String[] keyNames,
+            List<String> keyNames,
             KuduTableInfo tableInfo,
             KuduReaderConfig kuduReaderConfig,
-            String[] projectedFields,
+            List<String> projectedFields,
             KuduLookupOptions kuduLookupOptions) {
         this.tableInfo = tableInfo;
         this.convertor = new RowResultRowDataConverter();
@@ -88,7 +85,7 @@ public class KuduRowDataLookupFunction extends TableFunction<RowData> {
      * @param keys join keys
      */
     public void eval(Object... keys) {
-        if (keys.length != keyNames.length) {
+        if (keys.length != keyNames.size()) {
             throw new RuntimeException("The join keys are of unequal lengths");
         }
         // cache key
@@ -146,9 +143,9 @@ public class KuduRowDataLookupFunction extends TableFunction<RowData> {
 
     private List<KuduFilterInfo> buildKuduFilterInfo(Object... keyValS) {
         List<KuduFilterInfo> kuduFilterInfos = Lists.newArrayList();
-        for (int i = 0; i < keyNames.length; i++) {
+        for (int i = 0; i < keyNames.size(); i++) {
             KuduFilterInfo kuduFilterInfo =
-                    KuduFilterInfo.Builder.create(keyNames[i]).equalTo(keyValS[i]).build();
+                    KuduFilterInfo.Builder.create(keyNames.get(i)).equalTo(keyValS[i]).build();
             kuduFilterInfos.add(kuduFilterInfo);
         }
         return kuduFilterInfos;
@@ -162,7 +159,7 @@ public class KuduRowDataLookupFunction extends TableFunction<RowData> {
                     new KuduReader<>(this.tableInfo, this.kuduReaderConfig, this.convertor);
             // build kudu cache
             this.kuduReader.setTableProjections(
-                    ArrayUtils.isNotEmpty(projectedFields) ? Arrays.asList(projectedFields) : null);
+                    projectedFields.isEmpty() ? projectedFields : null);
             this.cache =
                     this.cacheMaxSize == -1 || this.cacheExpireMs == -1
                             ? null
@@ -198,8 +195,8 @@ public class KuduRowDataLookupFunction extends TableFunction<RowData> {
     public static class Builder {
         private KuduTableInfo tableInfo;
         private KuduReaderConfig kuduReaderConfig;
-        private String[] keyNames;
-        private String[] projectedFields;
+        private List<String> keyNames;
+        private List<String> projectedFields;
         private KuduLookupOptions kuduLookupOptions;
 
         public static Builder options() {
@@ -216,12 +213,12 @@ public class KuduRowDataLookupFunction extends TableFunction<RowData> {
             return this;
         }
 
-        public Builder keyNames(String[] keyNames) {
+        public Builder keyNames(List<String> keyNames) {
             this.keyNames = keyNames;
             return this;
         }
 
-        public Builder projectedFields(String[] projectedFields) {
+        public Builder projectedFields(List<String> projectedFields) {
             this.projectedFields = projectedFields;
             return this;
         }

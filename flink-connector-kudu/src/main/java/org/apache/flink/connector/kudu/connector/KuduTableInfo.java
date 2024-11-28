@@ -21,7 +21,6 @@ import org.apache.flink.annotation.PublicEvolving;
 
 import org.apache.kudu.Schema;
 import org.apache.kudu.client.CreateTableOptions;
-
 import java.io.Serializable;
 import java.util.Objects;
 
